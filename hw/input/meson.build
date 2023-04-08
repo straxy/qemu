@@ -15,3 +15,5 @@ system_ss.add(when: 'CONFIG_VIRTIO_INPUT_HOST', if_true: files('virtio-input-hos
 system_ss.add(when: 'CONFIG_PXA2XX', if_true: files('pxa2xx_keypad.c'))
 system_ss.add(when: 'CONFIG_TSC210X', if_true: files('tsc210x.c'))
 system_ss.add(when: 'CONFIG_LASIPS2', if_true: files('lasips2.c'))
+
+#softmmu_ss.add(files("allwinner-a10-ps2.c"))

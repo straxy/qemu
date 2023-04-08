@@ -42,6 +42,10 @@
 #define AW_A10_WDT_BASE         0x01c20c90
 #define AW_A10_RTC_BASE         0x01c20d00
 #define AW_A10_I2C0_BASE        0x01c2ac00
+#define AW_A10_LCDC0_BASE       0x01c0c000
+#define AW_A10_HDMI_BASE        0x01c16000
+#define AW_A10_GPU_BASE         0x01c40000
+#define AW_A10_DE_BE0_BASE      0x01e60000
 
 void allwinner_a10_bootrom_setup(AwA10State *s, BlockBackend *blk)
 {
@@ -91,6 +95,14 @@ static void aw_a10_init(Object *obj)
     object_initialize_child(obj, "rtc", &s->rtc, TYPE_AW_RTC_SUN4I);
 
     object_initialize_child(obj, "wdt", &s->wdt, TYPE_AW_WDT_SUN4I);
+
+    object_initialize_child(obj, "hdmi", &s->hdmi, TYPE_AW_A10_HDMI);
+
+    object_initialize_child(obj, "lcd0", &s->lcd0, TYPE_AW_A10_LCDC);
+
+    object_initialize_child(obj, "de_be0", &s->de_be0, TYPE_AW_A10_DEBE);
+
+    object_initialize_child(obj, "mali400", &s->gpu, TYPE_AW_GPU);
 }
 
 static void aw_a10_realize(DeviceState *dev, Error **errp)
@@ -198,6 +210,19 @@ static void aw_a10_realize(DeviceState *dev, Error **errp)
     /* WDT */
     sysbus_realize(SYS_BUS_DEVICE(&s->wdt), &error_fatal);
     sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->wdt), 0, AW_A10_WDT_BASE, 1);
+
+    sysbus_realize(SYS_BUS_DEVICE(&s->hdmi), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->hdmi), 0, AW_A10_HDMI_BASE);
+
+    sysbus_realize(SYS_BUS_DEVICE(&s->lcd0), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->lcd0), 0, AW_A10_LCDC0_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->lcd0), 0, qdev_get_gpio_in(dev, 44));
+
+    sysbus_realize(SYS_BUS_DEVICE(&s->de_be0), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->de_be0), 0, AW_A10_DE_BE0_BASE);
+
+    sysbus_realize(SYS_BUS_DEVICE(&s->gpu), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpu), 0, AW_A10_GPU_BASE);
 }
 
 static void aw_a10_class_init(ObjectClass *oc, void *data)
