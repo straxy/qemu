@@ -1,10 +1,7 @@
 /*
- * Allwinner A10 Clock Control Module emulation
+ * Allwinner A10 PS2 Module emulation
  *
- * Copyright (C) 2022 Strahinja Jankovic <strahinja.p.jankovic@gmail.com>
- *
- *  This file is derived from Allwinner H3 CCU,
- *  by Niek Linnenbank.
+ * Copyright (C) 2023 Strahinja Jankovic <strahinja.p.jankovic@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef HW_MISC_ALLWINNER_A10_PS2_H
-#define HW_MISC_ALLWINNER_A10_PS2_H
+#ifndef HW_INPUT_ALLWINNER_A10_PS2_H
+#define HW_INPUT_ALLWINNER_A10_PS2_H
 
 #include "qom/object.h"
 #include "hw/sysbus.h"
@@ -57,7 +54,7 @@ OBJECT_DECLARE_TYPE(AwA10PS2State, AwA10PS2DeviceClass, AW_A10_PS2)
 /** @} */
 
 /**
- * Allwinner A10 CCM object instance state.
+ * Allwinner A10 PS2 object instance state.
  */
 struct AwA10PS2State {
     /*< private >*/
@@ -95,4 +92,4 @@ struct AwA10PS2MouseState {
 };
 
 
-#endif /* HW_MISC_ALLWINNER_H3_CCU_H */
+#endif /* HW_INPUT_ALLWINNER_A10_PS2_H */

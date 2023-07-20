@@ -41,6 +41,8 @@
 #define AW_A10_SATA_BASE        0x01c18000
 #define AW_A10_WDT_BASE         0x01c20c90
 #define AW_A10_RTC_BASE         0x01c20d00
+#define AW_A10_PS2_0_BASE       0x01c2a000
+#define AW_A10_PS2_1_BASE       0x01c2a400
 #define AW_A10_I2C0_BASE        0x01c2ac00
 #define AW_A10_LCDC0_BASE       0x01c0c000
 #define AW_A10_HDMI_BASE        0x01c16000
@@ -103,6 +105,10 @@ static void aw_a10_init(Object *obj)
     object_initialize_child(obj, "de_be0", &s->de_be0, TYPE_AW_A10_DEBE);
 
     object_initialize_child(obj, "mali400", &s->gpu, TYPE_AW_GPU);
+
+    object_initialize_child(obj, "keyboard", &s->kbd, TYPE_AW_A10_PS2_KBD_DEVICE);
+
+    object_initialize_child(obj, "mouse", &s->mouse, TYPE_AW_A10_PS2_MOUSE_DEVICE);
 }
 
 static void aw_a10_realize(DeviceState *dev, Error **errp)
@@ -223,6 +229,14 @@ static void aw_a10_realize(DeviceState *dev, Error **errp)
 
     sysbus_realize(SYS_BUS_DEVICE(&s->gpu), &error_fatal);
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpu), 0, AW_A10_GPU_BASE);
+
+    sysbus_realize(SYS_BUS_DEVICE(&s->kbd), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->kbd), 0, AW_A10_PS2_0_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->kbd), 0, qdev_get_gpio_in(dev, 62));
+
+    sysbus_realize(SYS_BUS_DEVICE(&s->mouse), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mouse), 0, AW_A10_PS2_1_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mouse), 0, qdev_get_gpio_in(dev, 63));
 }
 
 static void aw_a10_class_init(ObjectClass *oc, void *data)
