@@ -395,3 +395,10 @@ ivshmem_flat_interrupt_peer(uint16_t peer_id, uint16_t vector_id) "Interrupting 
 i2c_echo_event(const char *id, const char *event) "%s: %s"
 i2c_echo_recv(const char *id, uint8_t data) "%s: recv 0x%02" PRIx8
 i2c_echo_send(const char *id, uint8_t data) "%s: send 0x%02" PRIx8
+
+# mmsens.c
+mm_sens_update_irq(uint8_t pending) "Interrupt pending %u"
+mm_sens_unknown_frequency(uint8_t freq) "Unknown frequency %u"
+mm_sens_ctrl_post_write(uint64_t value) "Wrote 0x%"PRIx64" to CTRL"
+mm_sens_status_post_write(uint64_t value) "Wrote 0x%"PRIx64" to STATUS"
+mm_sens_initval(uint64_t value, uint8_t valid) "Wrote 0x%"PRIx64" to INITVAL, warning=%u"

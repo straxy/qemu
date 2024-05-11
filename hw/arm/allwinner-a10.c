@@ -43,6 +43,7 @@
 #define AW_A10_SATA_BASE        0x01c18000
 #define AW_A10_WDT_BASE         0x01c20c90
 #define AW_A10_RTC_BASE         0x01c20d00
+#define AW_A10_MM_SENS_BASE     0x01c2a800
 #define AW_A10_I2C0_BASE        0x01c2ac00
 
 void allwinner_a10_bootrom_setup(AwA10State *s, BlockBackend *blk)
@@ -94,6 +95,8 @@ static void aw_a10_init(Object *obj)
     object_initialize_child(obj, "rtc", &s->rtc, TYPE_AW_RTC_SUN4I);
 
     object_initialize_child(obj, "wdt", &s->wdt, TYPE_AW_WDT_SUN4I);
+
+    object_initialize_child(obj, "mmsens", &s->mmsens, TYPE_MM_SENS);
 }
 
 static void aw_a10_realize(DeviceState *dev, Error **errp)
@@ -206,6 +209,11 @@ static void aw_a10_realize(DeviceState *dev, Error **errp)
     /* WDT */
     sysbus_realize(SYS_BUS_DEVICE(&s->wdt), &error_fatal);
     sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->wdt), 0, AW_A10_WDT_BASE, 1);
+
+    /* MMSens */
+    sysbus_realize(SYS_BUS_DEVICE(&s->mmsens), &error_fatal);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->mmsens), 0, AW_A10_MM_SENS_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mmsens), 0, qdev_get_gpio_in(dev, 36));
 }
 
 static void aw_a10_class_init(ObjectClass *oc, void *data)
