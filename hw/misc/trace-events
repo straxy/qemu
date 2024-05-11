@@ -351,3 +351,10 @@ djmemc_write(int reg, uint64_t value, unsigned int size) "reg=0x%x value=0x%"PRI
 # iosb.c
 iosb_read(int reg, uint64_t value, unsigned int size) "reg=0x%x value=0x%"PRIx64" size=%u"
 iosb_write(int reg, uint64_t value, unsigned int size) "reg=0x%x value=0x%"PRIx64" size=%u"
+
+# mmsens.c
+mm_sens_update_irq(uint8_t pending) "Interrupt pending %u"
+mm_sens_unknown_frequency(uint8_t freq) "Unknown frequency %u"
+mm_sens_ctrl_post_write(uint64_t value) "Wrote 0x%"PRIx64" to CTRL"
+mm_sens_status_post_write(uint64_t value) "Wrote 0x%"PRIx64" to STATUS"
+mm_sens_initval(uint64_t value, uint8_t valid) "Wrote 0x%"PRIx64" to INITVAL, warning=%u"

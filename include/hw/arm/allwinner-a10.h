@@ -13,6 +13,7 @@
 #include "hw/misc/allwinner-a10-dramc.h"
 #include "hw/i2c/allwinner-i2c.h"
 #include "hw/watchdog/allwinner-wdt.h"
+#include "hw/misc/mmsens.h"
 #include "sysemu/block-backend.h"
 
 #include "target/arm/cpu.h"
@@ -42,6 +43,7 @@ struct AwA10State {
     AWI2CState i2c0;
     AwRtcState rtc;
     AwWdtState wdt;
+    MMSensorState mmsens;
     MemoryRegion sram_a;
     EHCISysBusState ehci[AW_A10_NUM_USB];
     OHCISysBusState ohci[AW_A10_NUM_USB];
