@@ -14,6 +14,7 @@
 #include "hw/i2c/allwinner-i2c.h"
 #include "hw/ssi/allwinner-a10-spi.h"
 #include "hw/watchdog/allwinner-wdt.h"
+#include "hw/misc/mmsens.h"
 #include "system/block-backend.h"
 
 #include "target/arm/cpu.h"
@@ -44,6 +45,7 @@ struct AwA10State {
     AWA10SPIState spi0;
     AwRtcState rtc;
     AwWdtState wdt;
+    MMSensorState mmsens;
     MemoryRegion sram_a;
     EHCISysBusState ehci[AW_A10_NUM_USB];
     OHCISysBusState ohci[AW_A10_NUM_USB];
