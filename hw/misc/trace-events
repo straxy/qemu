@@ -402,3 +402,7 @@ mm_sens_unknown_frequency(uint8_t freq) "Unknown frequency %u"
 mm_sens_ctrl_post_write(uint64_t value) "Wrote 0x%"PRIx64" to CTRL"
 mm_sens_status_post_write(uint64_t value) "Wrote 0x%"PRIx64" to STATUS"
 mm_sens_initval(uint64_t value, uint8_t valid) "Wrote 0x%"PRIx64" to INITVAL, warning=%u"
+
+# i2csens.c
+i2csens_read(int reg_id, int val) "Reading from %d: %d"
+i2csens_write(int reg_id, int val) "Writing to %d: %d"
