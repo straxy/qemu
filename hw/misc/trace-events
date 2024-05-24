@@ -351,3 +351,7 @@ djmemc_write(int reg, uint64_t value, unsigned int size) "reg=0x%x value=0x%"PRI
 # iosb.c
 iosb_read(int reg, uint64_t value, unsigned int size) "reg=0x%x value=0x%"PRIx64" size=%u"
 iosb_write(int reg, uint64_t value, unsigned int size) "reg=0x%x value=0x%"PRIx64" size=%u"
+
+# i2csens.c
+i2csens_read(int reg_id, int val) "Reading from %d: %d"
+i2csens_write(int reg_id, int val) "Writing to %d: %d"
