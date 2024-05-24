@@ -23,6 +23,7 @@
 #include "hw/arm/allwinner-a10.h"
 #include "hw/arm/boot.h"
 #include "hw/i2c/i2c.h"
+#include "monitor/qdev.h"
 
 static struct arm_boot_info cubieboard_binfo = {
     .loader_start = AW_A10_SDRAM_BASE,
@@ -38,6 +39,8 @@ static void cubieboard_init(MachineState *machine)
     BusState *bus;
     DeviceState *carddev;
     I2CBus *i2c;
+    DeviceState *i2csensdev;
+    g_autofree char *i2cid = g_strdup("i2csens");
 
     /* BIOS is not supported by this board */
     if (machine->firmware) {
@@ -81,6 +84,10 @@ static void cubieboard_init(MachineState *machine)
     /* Connect AXP 209 */
     i2c = I2C_BUS(qdev_get_child_bus(DEVICE(&a10->i2c0), "i2c"));
     i2c_slave_create_simple(i2c, "axp209_pmu", 0x34);
+
+    i2csensdev = DEVICE(i2c_slave_new("mistra.i2csens", 0x36));
+    qdev_set_id(i2csensdev, i2cid, &err);
+    i2c_slave_realize_and_unref(I2C_SLAVE(i2csensdev), i2c, &err);
 
     /* Retrieve SD bus */
     di = drive_get(IF_SD, 0, 0);
