@@ -120,7 +120,6 @@ static void r_ctrl_pre_write(MMSensorState *s, uint64_t val)
 {
     uint8_t new_sfreq = (val & R_CTRL_FREQ_MASK) >> R_CTRL_FREQ_SHIFT;
 
-    trace_mm_sens_ctrl_post_write(val);
 
     ptimer_transaction_begin(s->timer);
 
@@ -150,11 +149,6 @@ static void r_ctrl_pre_write(MMSensorState *s, uint64_t val)
             } else {
                 s->regs[R_DATA] = s->regs[R_INITVAL];
             }
-        }
-
-        if (val & R_CTRL_IEN_MASK) {
-            /* check if alarm should be triggered */
-            mm_sens_update_irq(s);
         }
     } else {
         /* stop timer */
@@ -217,13 +211,12 @@ static void mm_sens_write(void *opaque, hwaddr offset,
     MMSensorState *s = MM_SENS(opaque);
     const uint32_t idx = REG_INDEX(offset);
 
+    /* Pre-write handlers */
     switch (offset) {
     case A_CTRL:
         r_ctrl_pre_write(s, val);
         break;
     case A_STATUS:
-        trace_mm_sens_status_post_write(val);
-        mm_sens_update_irq(s);
         /* STATUS.INITW should not be affected by written value */
         val = val & (~R_STATUS_INITW_MASK);
         val |= s->regs[R_STATUS] & R_STATUS_INITW_MASK;
@@ -245,6 +238,24 @@ static void mm_sens_write(void *opaque, hwaddr offset,
     }
 
     s->regs[idx] = (uint32_t)val;
+
+    /* Post-write handlers */
+    switch (offset) {
+        case A_CTRL:
+            trace_mm_sens_ctrl_post_write(val);
+            if (s->regs[A_CTRL] & (R_CTRL_EN_MASK | R_CTRL_IEN_MASK)) {
+                mm_sens_update_irq(s);
+            }
+            break;
+        case A_STATUS:
+            trace_mm_sens_status_post_write(val);
+            mm_sens_update_irq(s);
+            break;
+        case A_INITVAL:
+        default:
+            break;
+
+    }
 }
 
 static const MemoryRegionOps mm_sens_ops = {
