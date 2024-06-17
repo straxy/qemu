@@ -101,6 +101,35 @@ static void cubieboard_init(MachineState *machine)
         allwinner_a10_bootrom_setup(a10, blk);
     }
     /* TODO create and connect IDE devices for ide_drive_get() */
+    {
+        /* Add the is25wp128 NOR FLASH memory to first SPI */
+        Object *spi_dev;
+
+        spi_dev = object_resolve_path_component(OBJECT(a10), "spi0");
+        if (spi_dev) {
+            SSIBus *spi_bus;
+
+            spi_bus = (SSIBus *)qdev_get_child_bus(DEVICE(spi_dev), "spi");
+            if (spi_bus) {
+                DeviceState *flash_dev;
+                qemu_irq cs_line;
+                DriveInfo *dinfo = drive_get(IF_MTD, 0, 0);
+
+                flash_dev = qdev_new("is25wp128");
+                if (dinfo) {
+                    qdev_prop_set_drive_err(flash_dev, "drive",
+                                            blk_by_legacy_dinfo(dinfo),
+                                            &error_fatal);
+                }
+                qdev_prop_set_uint8(flash_dev, "cs", 0);
+                qdev_realize_and_unref(flash_dev, BUS(spi_bus), &error_fatal);
+
+                cs_line = qdev_get_gpio_in_named(flash_dev, SSI_GPIO_CS, 0);
+                // qdev_connect_gpio_out(DEVICE(spi_dev), 1, cs_line);
+                sysbus_connect_irq(SYS_BUS_DEVICE(&a10->spi0), 1, cs_line);
+            }
+        }
+    }
 
     cubieboard_binfo.ram_size = machine->ram_size;
     arm_load_kernel(&a10->cpu, machine, &cubieboard_binfo);
