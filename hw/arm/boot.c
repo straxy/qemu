@@ -772,6 +772,9 @@ static void do_cpu_reset(void *opaque)
             arm_rebuild_hflags(env);
         }
     }
+    else {
+        arm_emulate_firmware_reset(cs, 1);
+    }
 }
 
 static int do_arm_linux_init(Object *obj, void *opaque)
