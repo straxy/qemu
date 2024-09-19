@@ -108,6 +108,35 @@ static void cubieboard_init(MachineState *machine)
         allwinner_a10_bootrom_setup(a10, blk);
     }
     /* TODO create and connect IDE devices for ide_drive_get() */
+    {
+        /*
+         * TODO: Ideally we would expose the chip select and spi bus on the
+         * SoC object using alias properties; then we would not need to
+         * directly access the underlying spi device object.
+         */
+        /* Add the custom SPI device to first SPI */
+        Object *spi_dev;
+
+        spi_dev = object_resolve_path_component(OBJECT(a10), "spi0");
+        if (spi_dev) {
+            SSIBus *spi_bus;
+
+            spi_bus = (SSIBus *)qdev_get_child_bus(DEVICE(spi_dev), "spi");
+            if (spi_bus) {
+                DeviceState *cust_dev;
+                qemu_irq cs_line;
+                g_autofree char *spiid = g_strdup("spisens");
+
+                cust_dev = qdev_new("mistra.spisens");
+                qdev_prop_set_uint8(cust_dev, "cs", 0);
+                qdev_set_id(cust_dev, spiid, &error_fatal);
+                qdev_realize_and_unref(cust_dev, BUS(spi_bus), &error_fatal);
+
+                cs_line = qdev_get_gpio_in_named(cust_dev, SSI_GPIO_CS, 0);
+                sysbus_connect_irq(SYS_BUS_DEVICE(&a10->spi0), 1, cs_line);
+            }
+        }
+    }
 
     cubieboard_binfo.ram_size = machine->ram_size;
     arm_load_kernel(&a10->cpu, machine, &cubieboard_binfo);

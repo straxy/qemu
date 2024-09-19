@@ -406,3 +406,10 @@ mm_sens_initval(uint64_t value, uint8_t valid) "Wrote 0x%"PRIx64" to INITVAL, wa
 # i2csens.c
 i2csens_read(int reg_id, int val) "Reading from %d: %d"
 i2csens_write(int reg_id, int val) "Writing to %d: %d"
+
+# spisens.c
+spisens_select(void *s, const char *what) "[%p] %sselect"
+spisens_read_command(bool write_nread, uint8_t ptr) "Read at command byte with %d, ptr %d"
+spisens_read_valid(uint8_t ptr, uint32_t value) "Read success at %d, value %d"
+spisens_write_command(bool write_nread, uint8_t ptr) "Write at command byte with %d, ptr %d"
+spisens_write_valid(uint8_t ptr, uint32_t value) "Write success at %d, value %d"
