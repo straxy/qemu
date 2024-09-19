@@ -174,3 +174,4 @@ system_ss.add(when: 'CONFIG_AXIADO_CLK', if_true: files('axiado_clk.c'))
 
 system_ss.add(files('mmsens.c'))
 system_ss.add(files('i2csens.c'))
+system_ss.add(files('spisens.c'))
