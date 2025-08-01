@@ -156,9 +156,11 @@ static void aw_a10_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->sata), 0, qdev_get_gpio_in(dev, 56));
 
     /* FIXME use a qdev chardev prop instead of serial_hd() */
-    serial_mm_init(get_system_memory(), AW_A10_UART0_REG_BASE, 2,
-                   qdev_get_gpio_in(dev, 1),
-                   115200, serial_hd(0), DEVICE_LITTLE_ENDIAN);
+    for (size_t i = 0; i < 4; i++) {
+        serial_mm_init(get_system_memory(), AW_A10_UART0_REG_BASE + i * 0x400, 2,
+                    qdev_get_gpio_in(dev, i + 1),
+                    115200, serial_hd(i), DEVICE_LITTLE_ENDIAN);
+    }
 
     for (size_t i = 0; i < AW_A10_NUM_USB; i++) {
         g_autofree char *bus = g_strdup_printf("usb-bus.%zu", i);
