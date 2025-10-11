@@ -51,15 +51,10 @@
 // #define GPIO_PI_PINS    22
 
 typedef struct AWPortMap {
-    uint32_t cfg0;
-    uint32_t cfg1;
-    uint32_t cfg2;
-    uint32_t cfg3;
+    uint32_t cfg[4];
     uint32_t dat;
-    uint32_t drv0;
-    uint32_t drv1;
-    uint32_t pul0;
-    uint32_t pul1;
+    uint32_t drv[2];
+    uint32_t pul[2];
 } AWPortMap;
 
 typedef struct AWPortsOverlay {
@@ -82,16 +77,32 @@ static const uint32_t AW_PINS_PER_PORT[AW_GPIO_PORTS_NUM] = {
 #define DEFAULT_DRV_MASK                0xffffffff
 #define DEFAULT_PUL_MASK                0xffffffff
 
+#define CFG_INPUT_MASK     0x0
+#define CFG_OUTPUT_MASK    0x1
+#define CFG_IO_MASK        0x1
+#define CFG_PIN_STRIDE     4
+#define CFG_PINS_PER_REG   BITS_PER_LONG / CFG_PIN_STRIDE
+
 /* GPIO masks per number of pins */
-#define GPIO_CFG0_PINS_MASK(pins)       ((pins > 8) ? DEFAULT_CFG_MASK : ((1 << (pins * 4)) - 1) & DEFAULT_CFG_MASK)
-#define GPIO_CFG1_PINS_MASK(pins)       ((pins > 16) ? DEFAULT_CFG_MASK : ((pins > 8) ? ((1 << ((pins - 8) * 4)) - 1) & DEFAULT_CFG_MASK : 0))
-#define GPIO_CFG2_PINS_MASK(pins)       ((pins > 24) ? DEFAULT_CFG_MASK : ((pins > 16) ? ((1 << ((pins - 16) * 4)) - 1) & DEFAULT_CFG_MASK : 0))
-#define GPIO_CFG3_PINS_MASK(pins)       ((pins > 24) ? ((1 << ((pins - 16) * 4)) - 1) & DEFAULT_CFG_MASK : 0)
+#define GPIO_CFG0_PINS_MASK(pins)       ((pins > CFG_PINS_PER_REG) ? \
+                                            DEFAULT_CFG_MASK : \
+                                            ((1 << (pins * CFG_PIN_STRIDE)) - 1) & DEFAULT_CFG_MASK)
+#define GPIO_CFG1_PINS_MASK(pins)       ((pins > 16) ? \
+                                            DEFAULT_CFG_MASK : \
+                                            ((pins > 8) ? \
+                                                ((1 << ((pins - 8) * 4)) - 1) & DEFAULT_CFG_MASK : 0))
+#define GPIO_CFG2_PINS_MASK(pins)       ((pins > 24) ? \
+                                            DEFAULT_CFG_MASK : \
+                                            ((pins > 16) ? \
+                                                ((1 << ((pins - 16) * 4)) - 1) & DEFAULT_CFG_MASK : 0))
+#define GPIO_CFG3_PINS_MASK(pins)       ((pins > 24) ? \
+                                            ((1 << ((pins - 16) * 4)) - 1) & DEFAULT_CFG_MASK : 0)
 #define GPIO_DAT_PINS_MASK(pins)        ((1 << pins) - 1)
 #define GPIO_DRV0_PINS_MASK(pins)       ((pins > 16) ? DEFAULT_DRV_MASK : ((1 << (pins * 2)) - 1))
 #define GPIO_DRV1_PINS_MASK(pins)       ((pins > 16) ? ((1 << ((pins - 16) * 2)) - 1) : 0)
 #define GPIO_PUL0_PINS_MASK(pins)       ((pins > 16) ? DEFAULT_PUL_MASK : ((1 << (pins * 2)) - 1))
 #define GPIO_PUL1_PINS_MASK(pins)       ((pins > 16) ? ((1 << ((pins - 16) * 2)) - 1) : 0)
+
 
 #define PORT_STRIDE     0x24
 
@@ -305,21 +316,39 @@ static const char *allwinner_gpio_get_regname(unsigned offset)
 //     allwinner_gpio_update_int(s);
 // }
 //
-// static inline void allwinner_gpio_set_all_output_lines(AWGPIOState *s)
+
+static inline bool gpio_is_output(AWPortMap *port, uint32_t pin)
+{
+    uint32_t cfg_n = pin / CFG_PINS_PER_REG;
+    uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
+    return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) == CFG_OUTPUT_MASK);
+}
+
+static inline void port_update_output_lines(AWGPIOState *s, uint32_t port)
+{
+    AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
+    int pin;
+
+    for (pin = 0; pin < AW_PINS_PER_PORT[port]; pin++)
+    {
+        /*
+        * if the line is set as output, then forward the line
+        * level to its user.
+        */
+        if (gpio_is_output(&o->ports[port], pin))
+            qemu_set_irq(s->output[port][pin], !!(o->ports[port].dat & BIT_MASK(pin)));
+    }
+
+}
+// static inline void allwinner_gpio_update_all_output_lines(AWGPIOState *s)
 // {
-//     // int i;
-//     //
-//     // for (i = 0; i < IMX_GPIO_PIN_COUNT; i++) {
-//     //     /*
-//     //      * if the line is set as output, then forward the line
-//     //      * level to its user.
-//     //      */
-//     //     if (extract32(s->gdir, i, 1) && s->output[i]) {
-//     //         qemu_set_irq(s->output[i], extract32(s->dr, i, 1));
-//     //     }
-//     // }
-// }
+//     int port;
 //
+//     for (port = 0; port < AW_GPIO_PORTS_NUM; port++) {
+//         port_update_output_lines(s, port);
+//     }
+// }
+
 
 static uint64_t allwinner_gpio_read(void *opaque, hwaddr offset, unsigned size)
 {
@@ -356,37 +385,36 @@ static void allwinner_port_write(AWGPIOState *s, hwaddr offset, uint64_t value)
     uint32_t port = offset / PORT_STRIDE;
     uint32_t reg = offset % PORT_STRIDE;
 
-    // s->regs[REG_INDEX(offset)] = value;
-
     switch (reg) {
         case CFG0:
-            o->ports[port].cfg0 = value & GPIO_CFG0_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].cfg[0] = value & GPIO_CFG0_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case CFG1:
-            o->ports[port].cfg1 = value & GPIO_CFG1_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].cfg[1] = value & GPIO_CFG1_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case CFG2:
-            o->ports[port].cfg2 = value & GPIO_CFG2_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].cfg[2] = value & GPIO_CFG2_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case CFG3:
-            o->ports[port].cfg3 = value & GPIO_CFG3_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].cfg[3] = value & GPIO_CFG3_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case DAT:
             o->ports[port].dat = value & GPIO_DAT_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case DRV0:
-            o->ports[port].drv0 = value & GPIO_DRV0_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].drv[0] = value & GPIO_DRV0_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case DRV1:
-            o->ports[port].drv1 = value & GPIO_DRV1_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].drv[1] = value & GPIO_DRV1_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case PUL0:
-            o->ports[port].pul0 = value & GPIO_PUL0_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].pul[0] = value & GPIO_PUL0_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
         case PUL1:
-            o->ports[port].pul1 = value & GPIO_PUL1_PINS_MASK(AW_PINS_PER_PORT[port]);
+            o->ports[port].pul[1] = value & GPIO_PUL1_PINS_MASK(AW_PINS_PER_PORT[port]);
             break;
     }
+    port_update_output_lines(s, port);
 }
 
 static void allwinner_gpio_write(void *opaque, hwaddr offset, uint64_t value,
