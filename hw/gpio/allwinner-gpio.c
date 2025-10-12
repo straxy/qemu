@@ -161,44 +161,52 @@ typedef enum AWGPIOLevel {
     AW_GPIO_LEVEL_HIGH = 1,
 } AWGPIOLevel;
 
+static const char *portname(unsigned index)
+{
+    char *portname = NULL;
+
+    switch (index)
+    {
+        case GPIO_PA:
+            portname = g_strdup("PA");
+            break;
+        case GPIO_PB:
+            portname = g_strdup("PB");
+            break;
+        case GPIO_PC:
+            portname = g_strdup("PC");
+            break;
+        case GPIO_PD:
+            portname = g_strdup("PD");
+            break;
+        case GPIO_PE:
+            portname = g_strdup("PE");
+            break;
+        case GPIO_PF:
+            portname = g_strdup("PF");
+            break;
+        case GPIO_PG:
+            portname = g_strdup("PG");
+            break;
+        case GPIO_PH:
+            portname = g_strdup("PH");
+            break;
+        case GPIO_PI:
+            portname = g_strdup("PI");
+            break;
+        default:
+            break;
+    }
+    return portname;
+}
 
 static const char *allwinner_gpio_get_regname(unsigned offset)
 {
-    g_autofree char *portname = NULL;
     g_autofree char *regname = NULL;
 
     switch (offset) {
     case 0 ... GPIO_Pn_PUL1(GPIO_PI):
     {
-        switch (offset / 0x24) {
-            case GPIO_PA:
-                portname = g_strdup("PA");
-                break;
-            case GPIO_PB:
-                portname = g_strdup("PB");
-                break;
-            case GPIO_PC:
-                portname = g_strdup("PC");
-                break;
-            case GPIO_PD:
-                portname = g_strdup("PD");
-                break;
-            case GPIO_PE:
-                portname = g_strdup("PE");
-                break;
-            case GPIO_PF:
-                portname = g_strdup("PF");
-                break;
-            case GPIO_PG:
-                portname = g_strdup("PG");
-                break;
-            case GPIO_PH:
-                portname = g_strdup("PH");
-                break;
-            case GPIO_PI:
-                portname = g_strdup("PI");
-                break;
-        }
         switch (offset % 0x24) {
             case CFG0:
                 regname = g_strdup("CFG0");
@@ -228,7 +236,7 @@ static const char *allwinner_gpio_get_regname(unsigned offset)
                 regname = g_strdup("PUL1");
                 break;
         }
-        return g_strdup_printf("%s:%s", portname, regname);
+        return g_strdup_printf("%s:%s", portname(offset / 0x24), regname);
     }
     case GPIO_INT_CFG0:
         return "INT_CFG0";
@@ -552,11 +560,16 @@ static void allwinner_gpio_reset(DeviceState *dev)
 static void allwinner_gpio_realize(DeviceState *dev, Error **errp)
 {
     AWGPIOState *s = AW_GPIO(dev);
+    int port;
 
     memory_region_init_io(&s->iomem, OBJECT(s), &allwinner_gpio_ops, s,
                           TYPE_AW_GPIO, AW_GPIO_IOSIZE);
 
     // qdev_init_gpio_in(DEVICE(s), imx_gpio_set, IMX_GPIO_PIN_COUNT);
+    for (port = 0; port < AW_GPIO_PORTS_NUM; port++)
+    {
+        qdev_init_gpio_out_named(dev, s->output[port], portname(port), AW_PINS_PER_PORT[port]);
+    }
     // qdev_init_gpio_out(DEVICE(s), s->output, IMX_GPIO_PIN_COUNT);
     //
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
