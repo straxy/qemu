@@ -73,6 +73,18 @@ static const uint32_t AW_PINS_PER_PORT[AW_GPIO_PORTS_NUM] = {
     22
 };
 
+static const uint32_t AW_IRQ_BITMAP[AW_GPIO_PORTS_NUM] = {
+    0x0,
+    0x0,
+    0x0,
+    0x0,
+    0x0,
+    0x0,
+    0x0,
+    0x003fffff,
+    0x000ffc00,
+};
+
 #define DEFAULT_CFG_MASK                0x77777777
 #define DEFAULT_DRV_MASK                0xffffffff
 #define DEFAULT_PUL_MASK                0xffffffff
@@ -155,6 +167,24 @@ static const uint32_t AW_PINS_PER_PORT[AW_GPIO_PORTS_NUM] = {
 #define SDR_PAD_PUL         0x224
 
 #define REG_INDEX(offset)         (offset / sizeof(uint32_t))
+
+
+#define AW_GPIO_SET(port) \
+    static inline void allwinner_gpio_set_##port(void *opaque, int line, int level) { \
+        allwinner_gpio_set(opaque, port, line, level); \
+    }
+
+static void allwinner_gpio_set(void *opaque, int port, int line, int level);
+
+AW_GPIO_SET(GPIO_PA);
+AW_GPIO_SET(GPIO_PB);
+AW_GPIO_SET(GPIO_PC);
+AW_GPIO_SET(GPIO_PD);
+AW_GPIO_SET(GPIO_PE);
+AW_GPIO_SET(GPIO_PF);
+AW_GPIO_SET(GPIO_PG);
+AW_GPIO_SET(GPIO_PH);
+AW_GPIO_SET(GPIO_PI);
 
 typedef enum AWGPIOLevel {
     AW_GPIO_LEVEL_LOW = 0,
@@ -297,21 +327,6 @@ static const char *allwinner_gpio_get_regname(unsigned offset)
 //     // }
 // }
 
-// static void allwinner_gpio_set(void *opaque, int line, int level)
-// {
-//     AWGPIOState *s = AW_GPIO(opaque);
-//     AWGPIOLevel aw_level = level ? AW_GPIO_LEVEL_HIGH : AW_GPIO_LEVEL_LOW;
-//
-//     trace_allwinner_gpio_set(line, aw_level);
-//
-//     allwinner_gpio_set_int_line(s, line, aw_level);
-//
-//     // /* this is an input signal, so set PSR */
-//     // s->psr = deposit32(s->psr, line, 1, imx_level);
-//
-//     allwinner_gpio_update_int(s);
-// }
-//
 // static void allwiner_gpio_set_all_int_lines(AWGPIOState *s)
 // {
 //     // int i;
@@ -324,12 +339,35 @@ static const char *allwinner_gpio_get_regname(unsigned offset)
 //     allwinner_gpio_update_int(s);
 // }
 //
+static void allwinner_gpio_set(void *opaque, int port, int line, int level)
+{
+    AWGPIOState *s = AW_GPIO(opaque);
+    AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
+    AWGPIOLevel aw_level = level ? AW_GPIO_LEVEL_HIGH : AW_GPIO_LEVEL_LOW;
+
+    trace_allwinner_gpio_set(line, aw_level);
+
+    // allwinner_gpio_set_int_line(s, line, aw_level);
+
+    /* this is an input signal, so set PSR */
+    o->ports[port].dat = deposit32(o->ports[port].dat, line, 1, aw_level);
+
+    // allwinner_gpio_update_int(s);
+}
+
 
 static inline bool gpio_is_output(AWPortMap *port, uint32_t pin)
 {
     uint32_t cfg_n = pin / CFG_PINS_PER_REG;
     uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
     return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) == CFG_OUTPUT_MASK);
+}
+
+static inline bool gpio_is_input(AWPortMap *port, uint32_t pin)
+{
+    uint32_t cfg_n = pin / CFG_PINS_PER_REG;
+    uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
+    return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) == CFG_INPUT_MASK);
 }
 
 static inline void port_update_output_lines(AWGPIOState *s, uint32_t port)
@@ -345,6 +383,8 @@ static inline void port_update_output_lines(AWGPIOState *s, uint32_t port)
         */
         if (gpio_is_output(&o->ports[port], pin))
             qemu_set_irq(s->output[port][pin], !!(o->ports[port].dat & BIT_MASK(pin)));
+        else if (gpio_is_input(&o->ports[port], pin))
+            qemu_irq_lower(s->output[port][pin]);
     }
 
 }
@@ -535,12 +575,6 @@ static const VMStateDescription vmstate_allwinner_gpio = {
     }
 };
 
-// static const Property imx_gpio_properties[] = {
-//     DEFINE_PROP_BOOL("has-edge-sel", IMXGPIOState, has_edge_sel, true),
-//     DEFINE_PROP_BOOL("has-upper-pin-irq", IMXGPIOState, has_upper_pin_irq,
-//                      false),
-// };
-
 static void allwinner_gpio_reset(DeviceState *dev)
 {
     // IMXGPIOState *s = IMX_GPIO(dev);
@@ -565,15 +599,20 @@ static void allwinner_gpio_realize(DeviceState *dev, Error **errp)
     memory_region_init_io(&s->iomem, OBJECT(s), &allwinner_gpio_ops, s,
                           TYPE_AW_GPIO, AW_GPIO_IOSIZE);
 
-    // qdev_init_gpio_in(DEVICE(s), imx_gpio_set, IMX_GPIO_PIN_COUNT);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PA, AW_PINS_PER_PORT[GPIO_PA]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PB, AW_PINS_PER_PORT[GPIO_PB]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PC, AW_PINS_PER_PORT[GPIO_PC]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PD, AW_PINS_PER_PORT[GPIO_PD]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PE, AW_PINS_PER_PORT[GPIO_PE]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PF, AW_PINS_PER_PORT[GPIO_PF]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PG, AW_PINS_PER_PORT[GPIO_PG]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PH, AW_PINS_PER_PORT[GPIO_PH]);
+    qdev_init_gpio_in(dev, allwinner_gpio_set_GPIO_PI, AW_PINS_PER_PORT[GPIO_PI]);
     for (port = 0; port < AW_GPIO_PORTS_NUM; port++)
     {
         qdev_init_gpio_out_named(dev, s->output[port], portname(port), AW_PINS_PER_PORT[port]);
     }
-    // qdev_init_gpio_out(DEVICE(s), s->output, IMX_GPIO_PIN_COUNT);
-    //
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
-    // sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq[1]);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
 }
 
