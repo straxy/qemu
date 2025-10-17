@@ -73,16 +73,31 @@ static const uint32_t AW_PINS_PER_PORT[AW_GPIO_PORTS_NUM] = {
     22
 };
 
-static const uint32_t AW_IRQ_BITMAP[AW_GPIO_PORTS_NUM] = {
-    0x0,
-    0x0,
-    0x0,
-    0x0,
-    0x0,
-    0x0,
-    0x0,
-    0x003fffff,
-    0x000ffc00,
+// static const uint32_t AW_IRQ_BITMAP[AW_GPIO_PORTS_NUM] = {
+//     0x0,
+//     0x0,
+//     0x0,
+//     0x0,
+//     0x0,
+//     0x0,
+//     0x0,
+//     0x003fffff,
+//     0x000ffc00,
+// };
+
+static const uint32_t AW_IRQ_MAP[AW_GPIO_PORTS_NUM][AW_GPIO_PIN_COUNT] =
+{
+{-1},
+{-1},
+{-1},
+{-1},
+{-1},
+{-1},
+{-1},
+{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 22, 23, 24, 25, 26, 27,
+28, 29, 30, 31, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
 #define DEFAULT_CFG_MASK                0x77777777
@@ -287,72 +302,96 @@ static const char *allwinner_gpio_get_regname(unsigned offset)
     }
 }
 
-// static void allwinner_gpio_update_int(AWGPIOState *s)
-// {
-//     // if (s->has_upper_pin_irq) {
-//     //     qemu_set_irq(s->irq[0], (s->isr & s->imr & 0x0000FFFF) ? 1 : 0);
-//     //     qemu_set_irq(s->irq[1], (s->isr & s->imr & 0xFFFF0000) ? 1 : 0);
-//     // } else {
-//     //     qemu_set_irq(s->irq[0], (s->isr & s->imr) ? 1 : 0);
-//     // }
-// }
-//
-// static void allwinner_gpio_set_int_line(AWGPIOState *s, int line, AWGPIOLevel level)
-// {
-//     // /* if this signal isn't configured as an input signal, nothing to do */
-//     // if (extract32(s->gdir, line, 1)) {
-//     //     return;
-//     // }
-//     //
-//     // /* When set, EDGE_SEL overrides the ICR config */
-//     // if (extract32(s->edge_sel, line, 1)) {
-//     //     /* we detect interrupt on rising and falling edge */
-//     //     if (extract32(s->psr, line, 1) != level) {
-//     //         /* level changed */
-//     //         s->isr = deposit32(s->isr, line, 1, 1);
-//     //     }
-//     // } else if (extract64(s->icr, 2*line + 1, 1)) {
-//     //     /* interrupt is edge sensitive */
-//     //     if (extract32(s->psr, line, 1) != level) {
-//     //         /* level changed */
-//     //         if (extract64(s->icr, 2*line, 1) != level) {
-//     //             s->isr = deposit32(s->isr, line, 1, 1);
-//     //         }
-//     //     }
-//     // } else {
-//     //     /* interrupt is level sensitive */
-//     //     if (extract64(s->icr, 2*line, 1) == level) {
-//     //         s->isr = deposit32(s->isr, line, 1, 1);
-//     //     }
-//     // }
-// }
+static bool gpio_is_input(AWPortMap *port, uint32_t pin);
 
-// static void allwiner_gpio_set_all_int_lines(AWGPIOState *s)
-// {
-//     // int i;
-//
-//     // for (i = 0; i < IMX_GPIO_PIN_COUNT; i++) {
-//     //     IMXGPIOLevel imx_level = extract32(s->psr, i, 1);
-//     //     imx_gpio_set_int_line(s, i, imx_level);
-//     // }
-//
-//     allwinner_gpio_update_int(s);
-// }
-//
+static void allwinner_gpio_update_int(AWGPIOState *s)
+{
+    qemu_set_irq(s->irq, (s->regs[REG_INDEX(GPIO_INT_CTL)] & s->regs[REG_INDEX(GPIO_INT_STA)]) ? 1 : 0);
+}
+
+static void allwinner_gpio_set_int_line(AWGPIOState *s, int port, int line, AWGPIOLevel level)
+{
+    AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
+    int irq_line = AW_IRQ_MAP[port][line];
+
+    /* Check if pin can actually trigger an interrupt */
+    if (irq_line == -1)
+        return;
+
+    /* if this signal isn't configured as an input signal, nothing to do */
+    if (!gpio_is_input(&o->ports[port], line))
+        return;
+
+    /* Determine interrupt setting */
+    unsigned irq_cfg_index = irq_line / 8;
+    unsigned int_cfg_n = s->regs[REG_INDEX(GPIO_INT_CFG0) + irq_cfg_index];
+    unsigned int_cfg = extract32(int_cfg_n, (irq_line % 8) * 4, 3);
+
+    /* Get current input value */
+    unsigned input_val = extract32(o->ports[port].dat, line, 1);
+
+    switch (int_cfg) {
+        case 0: /* Positive edge */
+        if (!input_val && level)
+            deposit32(s->regs[REG_INDEX(GPIO_INT_STA)], irq_line, 1, 1);
+        break;
+        case 1: /* Negative edge */
+        if (input_val && !level)
+            deposit32(s->regs[REG_INDEX(GPIO_INT_STA)], irq_line, 1, 1);
+        break;
+        case 2: /* High level */
+        if (level)
+            deposit32(s->regs[REG_INDEX(GPIO_INT_STA)], irq_line, 1, 1);
+        break;
+        case 3: /* Low level */
+        if (!level)
+            deposit32(s->regs[REG_INDEX(GPIO_INT_STA)], irq_line, 1, 1);
+        break;
+        case 4: /* Both edges */
+        if (input_val != level)
+            deposit32(s->regs[REG_INDEX(GPIO_INT_STA)], irq_line, 1, 1);
+        break;
+        default:
+        /* Unexpected */
+        break;
+    }
+}
+
+static void port_set_all_int_lines(AWGPIOState *s, int port)
+{
+    AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
+    int i;
+
+    for (i = 0; i < AW_PINS_PER_PORT[port]; i++) {
+        AWGPIOLevel aw_level = extract32(o->ports[port].dat, i, 1);
+        allwinner_gpio_set_int_line(s, port, i, aw_level);
+    }
+
+    allwinner_gpio_update_int(s);
+}
+
+static void allwinner_set_all_int_lines(AWGPIOState *s)
+{
+    int i;
+
+    for (i = 0; i < AW_GPIO_PORTS_NUM; i++)
+        port_set_all_int_lines(s, i);
+}
+
 static void allwinner_gpio_set(void *opaque, int port, int line, int level)
 {
     AWGPIOState *s = AW_GPIO(opaque);
     AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
     AWGPIOLevel aw_level = level ? AW_GPIO_LEVEL_HIGH : AW_GPIO_LEVEL_LOW;
 
-    trace_allwinner_gpio_set(line, aw_level);
+    trace_allwinner_gpio_set(portname(port), line, aw_level);
 
-    // allwinner_gpio_set_int_line(s, line, aw_level);
+    allwinner_gpio_set_int_line(s, port, line, aw_level);
 
     /* this is an input signal, so set PSR */
     o->ports[port].dat = deposit32(o->ports[port].dat, line, 1, aw_level);
 
-    // allwinner_gpio_update_int(s);
+    allwinner_gpio_update_int(s);
 }
 
 
@@ -369,6 +408,13 @@ static inline bool gpio_is_input(AWPortMap *port, uint32_t pin)
     uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
     return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) == CFG_INPUT_MASK);
 }
+
+// static inline bool gpio_is_io(AWPortMap *port, uint32_t pin)
+// {
+//     uint32_t cfg_n = pin / CFG_PINS_PER_REG;
+//     uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
+//     return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) & 0x6) == 0;
+// }
 
 static inline void port_update_output_lines(AWGPIOState *s, uint32_t port)
 {
@@ -463,6 +509,7 @@ static void allwinner_port_write(AWGPIOState *s, hwaddr offset, uint64_t value)
             break;
     }
     port_update_output_lines(s, port);
+    port_set_all_int_lines(s, port);
 }
 
 static void allwinner_gpio_write(void *opaque, hwaddr offset, uint64_t value,
@@ -484,11 +531,12 @@ static void allwinner_gpio_write(void *opaque, hwaddr offset, uint64_t value,
         case GPIO_INT_DEB:
             s->regs[REG_INDEX(offset)] = value;
             /* update interrupts */
+            allwinner_set_all_int_lines(s);
             break;
         case GPIO_INT_STA:
             /* W1C */
             s->regs[REG_INDEX(offset)] &= ~value;
-            /* update interrupts */
+            allwinner_gpio_update_int(s);
             break;
     default:
         qemu_log_mask(LOG_GUEST_ERROR, "[%s]%s: Bad register at offset 0x%"
