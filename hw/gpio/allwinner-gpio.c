@@ -543,58 +543,6 @@ static void allwinner_gpio_write(void *opaque, hwaddr offset, uint64_t value,
                       HWADDR_PRIx "\n", TYPE_AW_GPIO, __func__, offset);
         break;
     }
-
-    //
-    // switch (offset) {
-    // case DR_ADDR:
-    //     s->dr = value;
-    //     imx_gpio_set_all_output_lines(s);
-    //     break;
-    //
-    // case GDIR_ADDR:
-    //     s->gdir = value;
-    //     imx_gpio_set_all_output_lines(s);
-    //     imx_gpio_set_all_int_lines(s);
-    //     break;
-    //
-    // case ICR1_ADDR:
-    //     s->icr = deposit64(s->icr, 0, 32, value);
-    //     imx_gpio_set_all_int_lines(s);
-    //     break;
-    //
-    // case ICR2_ADDR:
-    //     s->icr = deposit64(s->icr, 32, 32, value);
-    //     imx_gpio_set_all_int_lines(s);
-    //     break;
-    //
-    // case IMR_ADDR:
-    //     s->imr = value;
-    //     imx_gpio_update_int(s);
-    //     break;
-    //
-    // case ISR_ADDR:
-    //     s->isr &= ~value;
-    //     imx_gpio_set_all_int_lines(s);
-    //     break;
-    //
-    // case EDGE_SEL_ADDR:
-    //     if (s->has_edge_sel) {
-    //         s->edge_sel = value;
-    //         imx_gpio_set_all_int_lines(s);
-    //     } else {
-    //         qemu_log_mask(LOG_GUEST_ERROR, "[%s]%s: EDGE_SEL register not "
-    //                       "present on this version of GPIO device\n",
-    //                       TYPE_IMX_GPIO, __func__);
-    //     }
-    //     break;
-    //
-    // default:
-    //     qemu_log_mask(LOG_GUEST_ERROR, "[%s]%s: Bad register at offset 0x%"
-    //                   HWADDR_PRIx "\n", TYPE_IMX_GPIO, __func__, offset);
-    //     break;
-    // }
-    //
-    // return;
 }
 
 static const MemoryRegionOps allwinner_gpio_ops = {
@@ -610,14 +558,6 @@ static const VMStateDescription vmstate_allwinner_gpio = {
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
-        // VMSTATE_UINT32(dr, IMXGPIOState),
-        // VMSTATE_UINT32(gdir, IMXGPIOState),
-        // VMSTATE_UINT32(psr, IMXGPIOState),
-        // VMSTATE_UINT64(icr, IMXGPIOState),
-        // VMSTATE_UINT32(imr, IMXGPIOState),
-        // VMSTATE_UINT32(isr, IMXGPIOState),
-        // VMSTATE_BOOL(has_edge_sel, IMXGPIOState),
-        // VMSTATE_UINT32(edge_sel, IMXGPIOState),
         VMSTATE_UINT32_ARRAY(regs, AWGPIOState, AW_GPIO_REGS_NUM),
         VMSTATE_END_OF_LIST()
     }
@@ -670,7 +610,6 @@ static void allwinner_gpio_class_init(ObjectClass *klass, void *data)
 
     dc->realize = allwinner_gpio_realize;
     device_class_set_legacy_reset(dc, allwinner_gpio_reset);
-    // device_class_set_props(dc, imx_gpio_properties);
     dc->vmsd = &vmstate_allwinner_gpio;
     dc->desc = "Allwinner GPIO controller";
 }
