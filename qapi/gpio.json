@@ -1,0 +1,28 @@
+# -*- Mode: Python -*-
+#
+# Copyright (C) 2026 Strahinja Jankovic <strahinja.p.jankovic@gmail.com>
+#
+# This work is licensed under the terms of the GNU GPL, version 2 or later.
+# See the COPYING file in the top-level directory.
+
+{ 'include': 'common.json' }
+
+##
+# @x-gpio-set:
+# @id: QOM canonical path of the Allwinner GPIO device
+# @port: GPIO port index
+# @pin:  GPIO pin index
+# @level: new line level (false=low, true=high)
+##
+{ 'command': 'x-gpio-set',
+  'data': { 'id': 'str', 'port': 'int', 'pin': 'int', 'level': 'bool' }}
+
+##
+# @GPIO_CHANGED:
+# @id: QOM canonical path of the device
+# @port: GPIO port index
+# @pin:  GPIO pin index
+# @level: output line level (false=low, true=high)
+##
+{ 'event': 'GPIO_CHANGED',
+  'data': { 'id': 'str', 'port': 'int', 'pin': 'int', 'level': 'bool' }}

@@ -203,7 +203,7 @@ static inline char *portname_out(int port)
     return g_strconcat(portname(port), "_OUT", NULL);
 }
 
-static int irq_nr(int port, int line)
+static inline int irq_nr(int port, int line)
 {
     int irq = -1;
 

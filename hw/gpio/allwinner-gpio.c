@@ -14,6 +14,7 @@
 #include "migration/vmstate.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
+#include "qapi/qapi-events-gpio.h"
 #include "trace.h"
 
 #define REG_INDEX(offset)         (offset / sizeof(uint32_t))
@@ -25,7 +26,7 @@
         allwinner_gpio_set(opaque, port, line, level); \
     }
 
-static void allwinner_gpio_set(void *opaque, int port, int line, int level);
+void allwinner_gpio_set(void *opaque, int port, int line, int level);
 
 AW_GPIO_SET(GPIO_PA);
 AW_GPIO_SET(GPIO_PB);
@@ -201,7 +202,7 @@ static void allwinner_set_all_int_lines(AWGPIOState *s)
     }
 }
 
-static void allwinner_gpio_set(void *opaque, int port, int line, int level)
+void allwinner_gpio_set(void *opaque, int port, int line, int level)
 {
     AWGPIOState *s = AW_GPIO(opaque);
     AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
@@ -256,6 +257,8 @@ static inline void port_update_output_lines(AWGPIOState *s, uint32_t port)
             trace_allwinner_gpio_out_pin(
                 portname(port), pin,
                 !!(o->ports[port].dat & BIT_MASK(pin)));
+            qapi_event_send_gpio_changed(
+                object_get_canonical_path(OBJECT(s)), port, pin, !!(o->ports[port].dat & BIT_MASK(pin)));
          }
         else if (gpio_is_input(&o->ports[port], pin)) {
             qemu_irq_lower(s->output[port][pin]);
