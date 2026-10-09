@@ -76,6 +76,7 @@ static const AWPortResetVals aw_gpio_port_reset[] = {
 #define CFG_INPUT_MASK      0x0
 #define CFG_OUTPUT_MASK     0x1
 #define CFG_IO_MASK         0x1
+#define CFG_EINT_MASK       0x6
 #define CFG_PIN_STRIDE      4
 #define CFG_PINS_PER_REG    (AW_GPIO_PIN_COUNT / CFG_PIN_STRIDE)
 

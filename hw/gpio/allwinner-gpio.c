@@ -110,6 +110,7 @@ static char *allwinner_gpio_get_regname(unsigned offset)
     }
 }
 
+static bool gpio_is_eint(AWPortMap *port, uint32_t pin);
 static bool gpio_is_input(AWPortMap *port, uint32_t pin);
 static int int_ctl_cfg(AWGPIOState *s, int irq_line);
 
@@ -136,7 +137,7 @@ static void allwinner_gpio_set_int_line(AWGPIOState *s, int port,
     }
 
     /* if this signal isn't configured as an input signal, nothing to do */
-    if (!gpio_is_input(&o->ports[port], line)) {
+    if (!gpio_is_eint(&o->ports[port], line)) {
         return;
     }
 
@@ -208,7 +209,7 @@ void allwinner_gpio_set(void *opaque, int port, int line, int level)
     AWPortsOverlay *o = (AWPortsOverlay *)s->regs;
     AWGPIOLevel aw_level = level ? AW_GPIO_LEVEL_HIGH : AW_GPIO_LEVEL_LOW;
 
-    if (gpio_is_input(&o->ports[port], line)) {
+    if (gpio_is_input(&o->ports[port], line) || gpio_is_eint(&o->ports[port], line)) {
 
         trace_allwinner_gpio_set(portname(port), line, aw_level);
 
@@ -235,6 +236,14 @@ static inline bool gpio_is_input(AWPortMap *port, uint32_t pin)
     uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
     return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) ==
         CFG_INPUT_MASK);
+}
+
+static inline bool gpio_is_eint(AWPortMap *port, uint32_t pin)
+{
+    uint32_t cfg_n = pin / CFG_PINS_PER_REG;
+    uint32_t pin_shift = (pin % CFG_PINS_PER_REG) * CFG_PIN_STRIDE;
+    return (extract32(port->cfg[cfg_n], pin_shift, CFG_PIN_STRIDE - 1) ==
+        CFG_EINT_MASK);
 }
 
 static inline int int_ctl_cfg(AWGPIOState *s, int irq_line)
